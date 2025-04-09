@@ -1,104 +1,124 @@
-import pandas as pd
+import csv
+import os
 from datetime import date
+import openpyxl
 
-# List untuk menyimpan data
-harga_beras = []
-data_zakat = []
+file_csv = "data_zakat.csv"
+file_excel = "report_zakat.xlsx"
+file_harga_beras = "harga_beras.csv"
 
-# Menu menampilkan harga beras
-def tampilkan_harga():
-    if not harga_beras:
+def load_harga_beras():
+    harga = []
+    if os.path.exists(file_harga_beras):
+        with open(file_harga_beras, newline="") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if row:  # skip baris kosong
+                    harga.append(int(row[0]))
+    return harga
+
+def simpan_harga_beras(harga):
+    with open(file_harga_beras, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        for h in harga:
+            writer.writerow([h])
+
+def tampilkan_harga_beras(harga_list):
+    if not harga_list:
         print("Belum ada harga beras.")
-    for i, harga in enumerate(harga_beras, 1):
+    for i, h in enumerate(harga_list):
         print("Daftar Harga Beras:")
-        print(f"({i}, {harga})")
+        print(f"({i+1}) Rp {h}")
 
-# Menu input harga beras
-def input_harga():
-    try:
-        harga = int(input("Masukkan harga beras per kilo: "))
-        harga_beras.append(harga)
-        print("Harga berhasil ditambahkan.")
-    except ValueError:
-        print("Input tidak valid. Masukkan angka.")
+def input_harga_beras(harga_list):
+    harga = int(input("Masukkan Harga Beras Per-Kilo: "))
+    harga_list.append(harga)
+    print("Harga berhasil ditambahkan.")
+    simpan_harga_beras(harga_list)
 
-# Menampilkan data zakat
-def tampilkan_data_zakat():
-    if not data_zakat:
+def simpan_data_csv(data):
+    file_exists = os.path.exists(file_csv)
+    with open(file_csv, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(["NIK", "Nama", "Tanggal Bayar", "Harga Per-Kg", "Jumlah Kepala"])
+        for row in data:
+            writer.writerow(row)
+
+def tampilkan_data():
+    if not os.path.exists(file_csv):
         print("Belum ada data zakat.")
         return
-    print("\nData Pembayaran Zakat:")
-    for item in data_zakat:
-        print(item)
+    with open(file_csv, newline="") as file:
+        reader = csv.reader(file)
+        for row in reader:
+            print(row)
 
-# Menu input pembayaran zakat
-def pembayaran_zakat():
-    if not harga_beras:
-        print("Masukkan harga beras dulu sebelum input zakat.")
-        return
-
+def pembayaran_zakat(harga_list):
+    tampilkan_harga_beras(harga_list)
     nik = input("Masukkan NIK: ")
     nama = input("Masukkan Nama: ")
+    id_beras = int(input("Pilih nomor harga beras: "))
+    jumlah_kepala = int(input("Masukkan Jumlah Kepala: "))
+    harga_total = harga_list[id_beras - 1] * jumlah_kepala
+    print("Total yang harus dibayar: Rp", harga_total)
+    bayar = int(input("Masukkan jumlah uang yang dibayar: "))
+    kembali = bayar - harga_total
+    print("Kembalian Anda: Rp", kembali)
 
-    try:
-        id_beras = int(input("Masukkan id_beras : "))
-        jumlah_kepala = int(input("Masukkan jumlah kepala: "))
+    data = [(nik, nama, date.today(), harga_list[id_beras - 1], jumlah_kepala)]
+    simpan_data_csv(data)
 
-        harga_liter = harga_beras[id_beras - 1]
-        total = harga_liter * jumlah_kepala
-        print(f"Total yang harus dibayar: {total}")
-
-        bayar = int(input("Masukkan jumlah bayar: "))
-        kembali = bayar - total
-        print(f"Kembalian: {kembali}")
-
-        tanggal = date.today()
-        data_zakat.append({
-            "nik": nik,
-            "nama": nama,
-            "tanggal bayar": tanggal,
-            "beras/liter": harga_liter,
-            "jumlah": jumlah_kepala
-        })
-
-    except (ValueError, IndexError):
-        print("Input tidak valid. Periksa kembali id_beras dan jumlah kepala.")
-
-# Menu export ke Excel
-def export_excel():
-    if not data_zakat:
-        print("Belum ada data untuk diekspor.")
+def export_to_excel():
+    if not os.path.exists(file_csv):
+        print("Tidak ada data untuk di-export.")
         return
 
-    df = pd.DataFrame(data_zakat)
-    df.to_excel("reportzakat.xlsx", index=False)
-    print("Data berhasil diekspor ke file 'reportzakat.xlsx'.")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Data Zakat"
 
-# Menu utama
-while True:
-    print("\n=== Aplikasi Pembayaran Zakat ===")
-    print("1. Tampilkan Harga Beras")
-    print("2. Input Harga Beras")
-    print("3. Tampilkan Data Zakat")
-    print("4. Pembayaran Zakat")
-    print("5. Export ke Excel")
-    print("6. Keluar")
+    with open(file_csv, newline="") as file:
+        reader = csv.reader(file)
+        for row in reader:
+            ws.append(row)
 
-    pilihan = input("Pilih menu (1-6): ")
+    wb.save(file_excel)
+    print(f"Data berhasil diekspor ke {file_excel}")
 
-    if pilihan == "1":
-        tampilkan_harga()
-    elif pilihan == "2":
-        input_harga()
-    elif pilihan == "3":
-        tampilkan_data_zakat()
-    elif pilihan == "4":
-        pembayaran_zakat()
-    elif pilihan == "5":
-        export_excel()
-    elif pilihan == "6":
-        print("Terima kasih telah menggunakan aplikasi.")
-        break
-    else:
-        print("Pilihan tidak valid, silakan coba lagi.")
-        
+def main():
+    harga_beras = load_harga_beras()
+
+    while True:
+        print("""
+=== Aplikasi Pembayaran Zakat ===
+1. Tampilkan Harga Beras
+2. Input Harga Beras
+3. Tampilkan Data Zakat
+4. Pembayaran Zakat
+5. Export ke Excel
+6. Keluar
+""")
+        pilihan = input("Pilih menu (1-6): ")
+
+        if pilihan == '1':
+            tampilkan_harga_beras(harga_beras)
+        elif pilihan == '2':
+            input_harga_beras(harga_beras)
+        elif pilihan == '3':
+            tampilkan_data()
+        elif pilihan == '4':
+            if not harga_beras:
+                print("Masukkan dulu harga beras (menu 2).")
+            else:
+                pembayaran_zakat(harga_beras)
+        elif pilihan == '5':
+            export_to_excel()
+        elif pilihan == '6':
+            print("Terima kasih telah menggunakan aplikasi.")
+            break
+        else:
+            print("Pilihan tidak valid.")
+
+if __name__ == "__main__":
+    main()
