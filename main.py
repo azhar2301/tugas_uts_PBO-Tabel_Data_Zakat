@@ -31,7 +31,6 @@ def tampilkan_harga_beras(harga_list):
     if not harga_list:
         print("Belum ada harga beras.")
     for i, h in enumerate(harga_list):
-        print("Daftar Harga Beras:")
         print(f"({i+1}) Rp {h}")
 
 # Tambah harga beras
