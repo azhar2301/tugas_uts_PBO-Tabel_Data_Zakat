@@ -1,162 +1,217 @@
-import csv
-import os
-from datetime import date
-import openpyxl
+try:
+    import mysql.connector
+except ImportError:
+    print("Error: Modul 'MySql' Belum diaktifkan")
+    print("Silakan Aktifkan terlebih dahulu di Aplikasi XAMPP:")
+    print("Aktifkan Apache dan MySql")
+    exit()
+try:
+    import pandas as pd
+except ImportError:
+    print("Error: Modul 'pandas' belum terinstall.")
+    print("Silakan install terlebih dahulu dengan perintah:")
+    print("pip install pandas")
+    exit()
 
-# File yang digunakan
-file_csv = "data_zakat.csv"
-file_excel = "report_zakat.xlsx"
-file_harga_beras = "harga_beras.csv"
+def create_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",   
+        database="zakat" 
+    )
 
-# Load harga beras dari file
-def load_harga_beras():
-    harga = []
-    if os.path.exists(file_harga_beras):
-        with open(file_harga_beras, newline="") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if row:
-                    harga.append(int(row[0]))
-    return harga
+def add_zakat(nama, jenis_zakat, jumlah, tanggal):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    query = "INSERT INTO zakat_data (nama, jenis_zakat, jumlah, tanggal) VALUES (%s, %s, %s, %s)"
+    cursor.execute(query, (nama, jenis_zakat, jumlah, tanggal))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-# Simpan harga beras ke file
-def simpan_harga_beras(harga):
-    with open(file_harga_beras, mode="w", newline="") as file:
-        writer = csv.writer(file)
-        for h in harga:
-            writer.writerow([h])
+def update_zakat(id, nama, jenis_zakat, jumlah, tanggal):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    query = """UPDATE zakat_data 
+               SET nama = %s, jenis_zakat = %s, jumlah = %s, tanggal = %s 
+               WHERE id = %s"""
+    cursor.execute(query, (nama, jenis_zakat, jumlah, tanggal, id))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-# Tampilkan harga beras
-def tampilkan_harga_beras(harga_list):
-    if not harga_list:
-        print("Belum ada harga beras.")
-    for i, h in enumerate(harga_list):
-        print(f"({i+1}) Rp {h}")
 
-# Tambah harga beras
-def input_harga_beras(harga_list):
-    try:
-        harga = int(input("Masukkan Harga Beras Per-Kilo: "))
-        harga_list.append(harga)
-        print("Harga berhasil ditambahkan.")
-        simpan_harga_beras(harga_list)
-    except ValueError:
-        print("Input harus angka.")
+def delete_zakat(id):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    query = "DELETE FROM zakat_data WHERE id = %s"
+    cursor.execute(query, (id,))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-# Hapus semua harga beras
-def hapus_harga_beras():
-    if os.path.exists(file_harga_beras):
-        os.remove(file_harga_beras)
-        print("Semua data harga beras telah dihapus.")
-    else:
-        print("Tidak ada data harga beras yang perlu dihapus.")
+def add_beras(nama_beras, harga_per_kg):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    query = "INSERT INTO master_beras (nama_beras, harga_per_kg) VALUES (%s, %s)"
+    cursor.execute(query, (nama_beras, harga_per_kg))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-# Simpan data zakat ke file CSV
-def simpan_data_csv(data):
-    file_exists = os.path.exists(file_csv)
-    with open(file_csv, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        if not file_exists:
-            writer.writerow(["NIK", "Nama", "Tanggal Bayar", "Harga Per-Kg", "Jumlah Kepala"])
-        for row in data:
-            writer.writerow(row)
+def view_master_beras():
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    query = "SELECT * FROM master_beras"
+    cursor.execute(query)
+    result = cursor.fetchall()
+    
+    for row in result:
+        print(f"ID: {row[0]}, Nama Beras: {row[1]}, Harga per Kg: {row[2]}")
+    
+    cursor.close()
+    conn.close()
 
-# Tampilkan data zakat dari CSV
-def tampilkan_data():
-    if not os.path.exists(file_csv):
-        print("Belum ada data zakat.")
+def add_transaksi_zakat(id_zakat, id_beras, jumlah_beras, tanggal):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    query_beras = "SELECT harga_per_kg FROM master_beras WHERE id = %s"
+    cursor.execute(query_beras, (id_beras,))
+    result = cursor.fetchone()
+    
+    if result is None:
+        print("Error: ID beras tidak ditemukan!")
+        cursor.close()
+        conn.close()
         return
-    with open(file_csv, newline="") as file:
-        reader = csv.reader(file)
-        for row in reader:
-            print(row)
+    
+    harga_per_kg = result[0]
+    total_harga = harga_per_kg * jumlah_beras
+    
+    query = """INSERT INTO transaksi_zakat (id_zakat, id_beras, jumlah_beras, total_harga, tanggal) 
+               VALUES (%s, %s, %s, %s, %s)"""
+    cursor.execute(query, (id_zakat, id_beras, jumlah_beras, total_harga, tanggal))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("Transaksi zakat berhasil ditambahkan!")
 
-# Hapus semua data zakat
-def hapus_data_zakat():
-    if os.path.exists(file_csv):
-        os.remove(file_csv)
-        print("Semua data zakat berhasil dihapus.")
-    else:
-        print("Belum ada data zakat yang perlu dihapus.")
+def view_transaksi_zakat():
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    query = """SELECT tz.id, z.nama, z.jenis_zakat, m.nama_beras, tz.jumlah_beras, tz.total_harga, tz.tanggal
+               FROM transaksi_zakat tz
+               JOIN zakat_data z ON tz.id_zakat = z.id
+               JOIN master_beras m ON tz.id_beras = m.id"""
+    cursor.execute(query)
+    result = cursor.fetchall()
+    
+    for row in result:
+        print(f"ID Transaksi: {row[0]}, Nama Zakat: {row[1]}, Jenis Zakat: {row[2]}, Nama Beras: {row[3]}, "
+              f"Jumlah Beras: {row[4]}, Total Harga: {row[5]}, Tanggal: {row[6]}")
+    
+    cursor.close()
+    conn.close()
 
-# Proses pembayaran zakat
-def pembayaran_zakat(harga_list):
-    tampilkan_harga_beras(harga_list)
-    try:
-        nik = input("Masukkan NIK: ")
-        nama = input("Masukkan Nama: ")
-        id_beras = int(input("Pilih nomor harga beras: "))
-        jumlah_kepala = int(input("Masukkan Jumlah Kepala: "))
-        harga_total = harga_list[id_beras - 1] * jumlah_kepala
-        print("Total yang harus dibayar: Rp", harga_total)
-        bayar = int(input("Masukkan jumlah uang yang dibayar: "))
-        kembali = bayar - harga_total
-        print("Kembalian Anda: Rp", kembali)
-
-        data = [(nik, nama, date.today(), harga_list[id_beras - 1], jumlah_kepala)]
-        simpan_data_csv(data)
-    except (ValueError, IndexError):
-        print("Input tidak valid. Pastikan semua angka dimasukkan dengan benar.")
-
-# Export data ke Excel
 def export_to_excel():
-    if not os.path.exists(file_csv):
-        print("Tidak ada data untuk di-export.")
-        return
+    conn = create_connection()
+    query = "SELECT * FROM zakat_data"
+    
+    # Mengambil data dari database
+    zakat_data = pd.read_sql(query, conn)
+    
+    # Mengekspor data ke dalam file Excel
+    zakat_data.to_excel("data_zakat.xlsx", index=False)
+    
+    conn.close()
+    print("Data zakat berhasil diekspor ke dalam file 'data_zakat.xlsx'")
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Data Zakat"
+# Fungsi baru untuk menambahkan data master beras melalui input
+def input_master_beras():
+    print("\nTambah Data Master Beras")
+    nama_beras = input("Masukkan nama jenis beras: ")
+    harga_per_kg = float(input("Masukkan harga per kg: "))
+    
+    add_beras(nama_beras, harga_per_kg)
+    print("Data master beras berhasil ditambahkan!")
 
-    with open(file_csv, newline="") as file:
-        reader = csv.reader(file)
-        for row in reader:
-            ws.append(row)
-
-    wb.save(file_excel)
-    print(f"Data berhasil diekspor ke {file_excel}")
-
-# Main Program
+# Fungsi utama yang dimodifikasi
 def main():
-    harga_beras = load_harga_beras()
-
     while True:
-        print("""
-=== Aplikasi Pembayaran Zakat ===
-1. Tampilkan Harga Beras
-2. Input Harga Beras
-3. Hapus Semua Harga Beras
-4. Tampilkan Data Zakat
-5. Pembayaran Zakat
-6. Hapus Semua Data Zakat
-7. Export ke Excel
-8. Keluar
-""")
-        pilihan = input("Pilih menu (1-8): ")
-
-        if pilihan == '1':
-            tampilkan_harga_beras(harga_beras)
-        elif pilihan == '2':
-            input_harga_beras(harga_beras)
-        elif pilihan == '3':
-            hapus_harga_beras()
-            harga_beras = []
-        elif pilihan == '4':
-            tampilkan_data()
-        elif pilihan == '5':
-            if not harga_beras:
-                print("Masukkan dulu harga beras (menu 2).")
-            else:
-                pembayaran_zakat(harga_beras)
-        elif pilihan == '6':
-            hapus_data_zakat()
-        elif pilihan == '7':
+        print("\n=== Aplikasi Pembayaran Zakat ===")
+        print("1. Tambah Data Zakat")
+        print("2. Edit Data Zakat")
+        print("3. Hapus Data Zakat")
+        print("4. Lihat Data Master Beras")
+        print("5. Tambah Data Master Beras")  # Menu baru
+        print("6. Tambah Transaksi Zakat")
+        print("7. Lihat Transaksi Zakat")
+        print("8. Ekspor Data Zakat ke Excel")
+        print("9. Keluar")
+        
+        choice = input("Pilih opsi (1-9): ")
+        
+        if choice == "1":
+            nama = input("Masukkan nama: ")
+            jenis_zakat = input("Masukkan jenis zakat: ")
+            jumlah = float(input("Masukkan jumlah zakat: "))
+            tanggal = input("Masukkan tanggal (YYYY-MM-DD): ")
+            add_zakat(nama, jenis_zakat, jumlah, tanggal)
+            print("Data zakat berhasil ditambahkan.")
+        
+        elif choice == "2":
+            id_zakat = int(input("Masukkan ID zakat yang ingin diubah: "))
+            nama = input("Masukkan nama baru: ")
+            jenis_zakat = input("Masukkan jenis zakat baru: ")
+            jumlah = float(input("Masukkan jumlah zakat baru: "))
+            tanggal = input("Masukkan tanggal baru (YYYY-MM-DD): ")
+            update_zakat(id_zakat, nama, jenis_zakat, jumlah, tanggal)
+            print("Data zakat berhasil diperbarui.")
+        
+        elif choice == "3":
+            id_zakat = int(input("Masukkan ID zakat yang ingin dihapus: "))
+            delete_zakat(id_zakat)
+            print("Data zakat berhasil dihapus.")
+        
+        elif choice == "4":
+            print("\nMaster Data Beras:")
+            view_master_beras()
+        
+        elif choice == "5":  # Opsi baru untuk input master beras
+            input_master_beras()
+        
+        elif choice == "6":
+            id_zakat = int(input("Masukkan ID zakat: "))
+            id_beras = int(input("Masukkan ID beras: "))
+            jumlah_beras = float(input("Masukkan jumlah beras (kg): "))
+            tanggal = input("Masukkan tanggal (YYYY-MM-DD): ")
+            add_transaksi_zakat(id_zakat, id_beras, jumlah_beras, tanggal)
+        
+        elif choice == "7":
+            print("\nTransaksi Zakat:")
+            view_transaksi_zakat()
+            
+        elif choice == "8":
             export_to_excel()
-        elif pilihan == '8':
+        
+        elif choice == "9":
             print("Terima kasih telah menggunakan aplikasi.")
             break
+        
         else:
-            print("Pilihan tidak valid.")
+            print("Pilihan tidak valid. Silakan coba lagi.")
 
-if __name__ == "__main__":
-    main()
+main()
